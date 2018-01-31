@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 /* 
 Author: Alex R Bucknall
@@ -86,7 +86,84 @@ typedef struct chip8{
 //0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
 //0x200-0xFFF - Program ROM and work RAM
 
-void main(){
-    int x = 1;
-    printf("press enter");
-};
+void chip8_start(){
+    char name[100];
+
+    printf("Enter name of the game: ");
+    scanf("%s", name);
+
+    chip8_prep(name);
+}
+
+void chip8_prep(char * name){
+    C8 CH8;
+    SDL_Renderer *renderer;
+    SDL_Window *window;
+
+    chip8_init(&CH8);
+
+    Uint8 * keys;
+    SDL_Event event;
+
+    SDL_Init(SDL_INIT_VIDEO);
+    SDL_CreateWindowAndRenderer(SCREEN_W, SCREEN_H, 0, &window, &renderer);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 120, 0, 120, 255);
+
+    for(;;){
+        if(SDL_PollEvent (&event))
+            continue;
+
+        chip8_exec(&CH8);
+        chip8_draw(&CH8);
+        chip8_prec(name, &event);
+}
+
+}
+
+void chip8_init(C8 * CH8, char * name){
+
+    int i;
+ 
+    CH8->game = fopen(name, "rb");
+    if (!CH8->game)  {
+        printf("Wrong game name!");
+        fflush(stdin); 
+        getchar();
+        exit(1);
+    }
+    fread(CH8->memory+0x200, 1, memsize-0x200, CH8->game); // load game into memory
+ 
+    for(i = 0; i < 80; ++i)
+            CH8->memory[i] = chip8_fontset[i]; // load fontset into memory
+ 
+    memset(CH8->graphics, 0, sizeof(CH8->graphics)); // clear graphics
+    memset(CH8->stack, 0, sizeof(CH8->stack)); // clear stack
+    memset(CH8->V, 0, sizeof(CH8->V)); // clear chip8 registers
+
+    CH8->PC = 0x200;
+    CH8->SP &= 0;
+    CH8->opcode = 0x200;
+}
+
+void chip8_draw(C8 * CH8){
+    int i, j;
+    char element;
+ 
+    for (i = 0; i < SCREEN_H; i++)
+        for (j = 0; j < SCREEN_W; j++){
+            element = CH8->graphics[(j/10)+(i/10)*64] ? 0xFFFFFFFF : 0;
+            printf("%c", element);
+        }
+
+}
+
+void chip8_timers(C8 * CH8){
+    if(CH8->delay_timer > 0)
+        CH8->delay_timer--;
+    if(CH8->sound_timer > 0)
+        CH8->sound_timer--;
+    if(CH8->sound_timer != 0)
+        printf("%c", 7);
+}
